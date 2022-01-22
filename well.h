@@ -12,13 +12,19 @@
 
 
 #define DEBUG true
+#define LOG_FILE "log.txt"
 
 #ifdef DEBUG
     #define GL_CALL(x) glClearErrors(); x; glCheckError(__FILE__, __LINE__, #x);
     extern void glClearErrors();
     extern void glCheckError(const char* file, int line, const char* function);
+
+    //#define DEBUG_LOG(...) printf(__VA_ARGS__);
+    #define DEBUG_LOG(...) { FILE* logFile = fopen(LOG_FILE, "a"); fprintf(logFile, __VA_ARGS__); fprintf(logFile, "  -- File:%s, Line:%i\n", __FILE__, __LINE__); fclose(logFile); }
 #else
     #define GL_CALL(x) x
+
+    #define DEBUG_LOG(...)
 #endif
 
 
@@ -64,6 +70,13 @@ struct Model {
     float worldScale;
 
     mat4x4 modelMat;
+    float specularStrength;
+};
+
+struct Light {
+    vec3 worldPos;
+
+    vec3 lightColor;
 };
 
 
@@ -77,12 +90,15 @@ extern void initCamera(struct Camera* camera, float FOV, int width, int height, 
 // render.c
 extern void initRender(struct Render* render, char vertexPath[500], char fragmentPath[500]);
 extern void freeRender(struct Render* render);
-extern void renderFrame(struct Render* render, struct Camera* camera, int modelSize, struct Model model[]);
+extern void renderFrame(struct Render* render, struct Camera* camera, int modelSize, struct Model models[], int lightSize, struct Light light[]);
 
 // model.c 
 extern void reCalcModelMat(struct Model* model);
 extern void loadModel(struct Model* model, char path[500]);
 extern void freeModel(struct Model* model);
+
+// light.c
+extern void initLight(struct Light* light, vec3 pos, vec3 color);
 
 // misc.c
 extern void defVec3(vec3* vec, float x, float y, float z);

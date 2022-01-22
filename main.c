@@ -4,6 +4,12 @@
 #define WINDOW_HEIGHT 1200
 
 GLFWwindow* init() {
+    #if DEBUG
+        fclose(fopen(LOG_FILE, "w"));
+    #endif
+
+
+
     /* Create window and GL context via GLFW */
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -41,14 +47,32 @@ int main() {
     
     GLFWwindow* window = init();
 
-    struct Render render;
-    initRender(&render, "resources/shaders/main.vs", "resources/shaders/main.fs");
+    struct Render mainRender;
+    initRender(&mainRender, "resources/shaders/main.vs", "resources/shaders/main.fs");
+
+    //struct Render outlineRender;
+    //initRender(&outlineRender, "resources/shaders/main.vs", "resources/shaders/outline.fs");
 
     struct Camera camera;
     initCamera(&camera, 1.4f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.01f, 10.0f );
 
     struct Model model;
     loadModel(&model, "resources/objects/cube.obj");
+
+
+    struct Model model2;
+    loadModel(&model2, "resources/objects/plane.obj");
+    model2.worldScale = 5.0;
+    model2.worldPos[1] = -2.5;
+    reCalcModelMat(&model2);
+
+
+    struct Light light;
+    initLight(&light, (vec3) {5.0f, 5.0f, 5.0f}, (vec3) {0.7f, 0.0f, 0.0f});
+
+    struct Light light2;
+    initLight(&light2, (vec3) {2.0f, 2.0f, -3.0f}, (vec3) {1.0f, 1.0f, 1.0f});
+
 
 
     float deltaTime = 0;
@@ -69,7 +93,9 @@ int main() {
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-        //printf("deltaTime:%f\n", deltaTime);
+        DEBUG_LOG("Time since init:%f", currentFrame);
+        DEBUG_LOG("FPS (at current frame):%f", 1.0/deltaTime);
+        //printf("FPS:%f\n", 1.0/deltaTime);
 
         model.worldRot[0] = rx;
         rx += 1.0 * deltaTime;
@@ -80,7 +106,13 @@ int main() {
         reCalcModelMat(&model);
 
 
-        renderFrame(&render, &camera, 1, &model);
+        struct Model models[2] = {model, model2};
+
+        struct Light lights[2] = {light, light2};
+
+
+        renderFrame(&mainRender, &camera, 2, models, 2, lights);
+        //renderFrame(&mainRender, &camera, 1, &model2);
 
 
 
@@ -90,7 +122,7 @@ int main() {
     }
 
     freeModel(&model);
-    freeRender(&render);
+    freeRender(&mainRender);
 
 
     terminate();
