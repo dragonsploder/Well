@@ -58,6 +58,7 @@ int main() {
 
     struct Model model;
     loadModel(&model, "resources/objects/cube.obj");
+    //loadModel(&model, "resources/objects/arch.obj");
 
 
     struct Model model2;
