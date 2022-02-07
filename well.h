@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define WINDOW_WIDTH 1600
+#define WINDOW_HEIGHT 1200
 
 
 #define DEBUG true
@@ -48,7 +50,18 @@ struct Camera {
 
 
 struct Render {
-    unsigned int program;
+    unsigned int mainProgram;
+    unsigned int shadowProgram;
+
+    unsigned int shadowWidth;
+    unsigned int shadowHeight;
+
+    unsigned int depthMapFBO[10];
+    unsigned int depthCubemap[10];
+    mat4x4 shadowProj;
+    float shadowAspect;
+    float shadowNear;
+    float shadowFar;
 };
 
 
@@ -77,6 +90,8 @@ struct Light {
     vec3 worldPos;
 
     vec3 lightColor;
+
+    mat4x4 shadowTransforms[6];
 };
 
 
@@ -88,8 +103,10 @@ extern void calcProjView(struct Camera* Camera);
 extern void initCamera(struct Camera* camera, float FOV, int width, int height, float near, float far);
 
 // render.c
-extern void initRender(struct Render* render, char vertexPath[500], char fragmentPath[500]);
+extern void initShader(unsigned int* shader, unsigned int shaderType, char path[500]);
+extern void initRender(struct Render* render, char mainVertexPath[500], char mainFragmentPath[500], char shadowVertexPath[500], char shadowFragmentPath[500], char shadowGeometryPath[500]);
 extern void freeRender(struct Render* render);
+extern void renderActual(struct Render* render, struct Camera* camera, int modelSize, struct Model models[]);
 extern void renderFrame(struct Render* render, struct Camera* camera, int modelSize, struct Model models[], int lightSize, struct Light light[]);
 
 // model.c 
@@ -98,7 +115,8 @@ extern void loadModel(struct Model* model, char path[500]);
 extern void freeModel(struct Model* model);
 
 // light.c
-extern void initLight(struct Light* light, vec3 pos, vec3 color);
+extern void reCalcLight(struct Light* light, struct Render render);
+extern void initLight(struct Light* light, vec3 pos, vec3 color, struct Render render);
 
 // misc.c
 extern void defVec3(vec3* vec, float x, float y, float z);

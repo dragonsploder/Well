@@ -21,7 +21,7 @@ void calcProjView(struct Camera* camera) {
 
 void initCamera(struct Camera* camera, float FOV, int width, int height, float near, float far) {
     DEBUG_LOG("Init Camera");
-    defVec3(&camera->position, 0.0f, 0.0f, -5.0f);
+    defVec3(&camera->position, 0.0f, 0.0f, -10.0f);
     defVec3(&camera->target, 0.0f, 0.0f, 0.0f);
 
     vec3 tmp;

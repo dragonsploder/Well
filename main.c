@@ -1,8 +1,5 @@
 #include "well.h"
 
-#define WINDOW_WIDTH 1600
-#define WINDOW_HEIGHT 1200
-
 GLFWwindow* init() {
     #if DEBUG
         fclose(fopen(LOG_FILE, "w"));
@@ -35,6 +32,7 @@ GLFWwindow* init() {
     }    
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 
     return window;
 }
@@ -48,17 +46,20 @@ int main() {
     GLFWwindow* window = init();
 
     struct Render mainRender;
-    initRender(&mainRender, "resources/shaders/main.vs", "resources/shaders/main.fs");
+    initRender(&mainRender, "resources/shaders/main.vs", "resources/shaders/main.fs", "resources/shaders/shadow.vs", "resources/shaders/shadow.fs", "resources/shaders/shadow.gs");
 
     //struct Render outlineRender;
     //initRender(&outlineRender, "resources/shaders/main.vs", "resources/shaders/outline.fs");
 
     struct Camera camera;
-    initCamera(&camera, 1.4f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.01f, 10.0f );
+    initCamera(&camera, 1.4f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.01f, 100.0f);
 
     struct Model model;
     loadModel(&model, "resources/objects/cube.obj");
     //loadModel(&model, "resources/objects/arch.obj");
+    model.worldScale = 0.4;
+    model.worldPos[1] = -1.0f;
+    reCalcModelMat(&model);
 
 
     struct Model model2;
@@ -69,10 +70,25 @@ int main() {
 
 
     struct Light light;
-    initLight(&light, (vec3) {5.0f, 5.0f, 5.0f}, (vec3) {0.7f, 0.0f, 0.0f});
+    initLight(&light, (vec3) {2.0f, 5.0f, -2.0f}, (vec3) {1.0f, 1.0f, 1.0f}, mainRender);
+
+
+    struct Model model3;
+    loadModel(&model3, "resources/objects/sphere.obj");
+    model3.worldScale = 0.2;
+    vec3_dup(model3.worldPos, light.worldPos);
+    //defVec3(&model3.worldPos, 3.0f, 3.0f, -3.0f);
+    reCalcModelMat(&model3);
 
     struct Light light2;
-    initLight(&light2, (vec3) {2.0f, 2.0f, -3.0f}, (vec3) {1.0f, 1.0f, 1.0f});
+    initLight(&light2, (vec3) {1.0f, 1.0f, 1.0f}, (vec3) {1.0f, 1.0f, 1.0f}, mainRender);
+
+    struct Model model4;
+    loadModel(&model4, "resources/objects/sphere.obj");
+    model4.worldScale = 0.2;
+    vec3_dup(model4.worldPos, light2.worldPos);
+    //defVec3(&model3.worldPos, 3.0f, 3.0f, -3.0f);
+    reCalcModelMat(&model4);
 
 
 
@@ -80,6 +96,7 @@ int main() {
     float lastFrame = 0;
     float rx = 0;
     float ry = 0;
+    float theta = 0;
 
 
     // Render loop
@@ -98,21 +115,26 @@ int main() {
         DEBUG_LOG("FPS (at current frame):%f", 1.0/deltaTime);
         //printf("FPS:%f\n", 1.0/deltaTime);
 
-        model.worldRot[0] = rx;
-        rx += 1.0 * deltaTime;
+        //model.worldRot[0] = rx;
+        //rx += 1.0 * deltaTime;
 
-        model.worldRot[1] = ry;
-        ry += 0.5 * deltaTime;
+        //model.worldRot[1] = ry;
+        //ry += 0.5 * deltaTime;
+        theta += 0.5 * deltaTime;
 
-        reCalcModelMat(&model);
+        //reCalcModelMat(&model);
+
+        defVec3(&camera.position, 5 * cos(theta), 0.0f, 5 * sin(theta));
+
+        calcView(&camera);
 
 
-        struct Model models[2] = {model, model2};
+        struct Model models[4] = {model, model2, model3, model4};
 
         struct Light lights[2] = {light, light2};
 
 
-        renderFrame(&mainRender, &camera, 2, models, 2, lights);
+        renderFrame(&mainRender, &camera, 4, models, 2, lights);
         //renderFrame(&mainRender, &camera, 1, &model2);
 
 

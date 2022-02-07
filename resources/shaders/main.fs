@@ -1,15 +1,39 @@
 #version 330 core
 in vec3 fragPos;
 
+uniform float farPlane;
+uniform samplerCube depthMap[10];
+
 uniform int lightNumber;
 uniform vec3 lightPos[10]; 
 uniform vec3 lightCol[10];
-uniform float specularStr[10];
+uniform float specularStr;
 uniform vec3 viewPos;
 
 out vec4 FragColor;  
 
-vec3 lightCalc(vec3 normal, vec3 lightPosition, vec3 lightColor, float specularStrength, vec3 viewPosition) {
+
+float shadowCalculation(int currentLight, vec3 fragmentPos, vec3 lightPos) {
+    // get vector between fragment position and light position
+    vec3 fragToLight = fragmentPos - lightPos;
+    // is the fragment to light vector to sample from the depth map    
+    float closestDepth = texture(depthMap[currentLight], fragToLight).r;
+    // it is currently in linear range between [0,1], let's re-transform it back to original depth value
+    closestDepth *= farPlane;
+    // now get current linear depth as the length between the fragment and light position
+    float currentDepth = length(fragToLight);
+    // test for shadows
+    float bias = 0.05; // we use a much larger bias since depth is now in [near_plane, far_plane] range
+    float shadow = currentDepth -  bias > closestDepth ? 1.0 : 0.0;        
+    // display closestDepth as debug (to visualize depth cubemap)
+    // FragColor = vec4(vec3(closestDepth / far_plane), 1.0);  
+
+    //FragColor = vec4(vec3(closestDepth / farPlane), 1.0);
+        
+    return shadow;
+}
+
+vec3 lightCalc(int currentLight, vec3 normal, vec3 lightPosition, vec3 lightColor, float specularStrength, vec3 viewPosition) {
     //https://learnopengl.com/Lighting/Basic-Lighting
     float ambientStrength = 0.1;
     vec3 ambient = ambientStrength * lightColor;
@@ -25,10 +49,13 @@ vec3 lightCalc(vec3 normal, vec3 lightPosition, vec3 lightColor, float specularS
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     vec3 specular = specularStrength * spec * lightColor;
 
+    float shadow = shadowCalculation(currentLight, fragPos, lightPosition); 
+
+
     //return (ambient + diffuse + specular);
-    return (ambient + diffuse + specular);
+    return (ambient + (1.0 - shadow) * (diffuse + specular));
 }
-  
+
 void main() {
     //https://stackoverflow.com/questions/14980712/how-to-get-flat-normals-on-a-cube
     vec3 norm = normalize(cross(dFdx(fragPos), dFdy(fragPos)));
@@ -38,7 +65,7 @@ void main() {
     vec3 lightTotal = vec3(0.0);
 
     for (int i = 0; i < lightNumber; i++) {
-        lightTotal += lightCalc(norm, lightPos[i], lightCol[i], specularStr[i], viewPos);
+        lightTotal += lightCalc(i, norm, lightPos[i], lightCol[i], specularStr, viewPos);
     }
       
 

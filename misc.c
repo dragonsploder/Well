@@ -11,7 +11,7 @@
         if (error) {
             printf("File:%s, Line:%i\n", file, line);
             printf("    Function:%s\n", function);
-            printf("        Error:%u\n", error);
+            printf("        Error:%u (0x%x)\n", error, error);
             exit(0);
         }
     }

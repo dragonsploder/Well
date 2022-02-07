@@ -1,80 +1,174 @@
 #include "well.h"
 
-void initRender(struct Render* render, char vertexPath[500], char fragmentPath[500]) {
-    DEBUG_LOG("Init render");
 
-    char *vertexShaderSource;
-    size_t vertexShaderSourceSize;
-    DEBUG_LOG("Reading vertex shader");
-    readFile(vertexPath, &vertexShaderSource, &vertexShaderSourceSize);
-    const char* vertexShaderSourceConst = vertexShaderSource;
+void initShader(unsigned int* shader, unsigned int shaderType, char path[500]) {
+    char *shaderSource;
+    size_t shaderSourceSize;
+    DEBUG_LOG("Reading shader");
+    readFile(path, &shaderSource, &shaderSourceSize);
+    const char* shaderSourceConst = shaderSource;
 
-    char *fragmentShaderSource;
-    size_t fragmentShaderSourceSize;
-    DEBUG_LOG("Reading fragment shader");
-    readFile(fragmentPath, &fragmentShaderSource, &fragmentShaderSourceSize);
-    const char* fragmentShaderSourceConst = fragmentShaderSource;
-
-    // build and compile our shader program
-    // vertex shader
-    DEBUG_LOG("Compiling vertex shader");
-    GL_CALL(unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER));
-    GL_CALL(glShaderSource(vertexShader, 1, &vertexShaderSourceConst, NULL));
-    GL_CALL(glCompileShader(vertexShader));
+    DEBUG_LOG("Compiling shader");
+    GL_CALL(*shader = glCreateShader(shaderType));
+    GL_CALL(glShaderSource(*shader, 1, &shaderSourceConst, NULL));
+    GL_CALL(glCompileShader(*shader));
     // check for shader compile errors
     int success;
-    char infoLog[512];
-    GL_CALL(glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success));
+    char infoLog[10000];
+    GL_CALL(glGetShaderiv(*shader, GL_COMPILE_STATUS, &success));
     if (!success) {
-        GL_CALL(glGetShaderInfoLog(vertexShader, 512, NULL, infoLog));
-        printf("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n");
+        glGetShaderInfoLog(*shader, 10000, NULL, infoLog);
+        printf("Shader Compilation Failed\n");
         printf("%s\n", infoLog);
+        exit(0);
     }
+}
 
-    // fragment shader
-    DEBUG_LOG("Reading fragment shader");
-    GL_CALL(unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER));
-    GL_CALL(glShaderSource(fragmentShader, 1, &fragmentShaderSourceConst, NULL));
-    GL_CALL(glCompileShader(fragmentShader));
-    // check for shader compile errors
-    GL_CALL(glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success));
-    if (!success) {
-        GL_CALL(glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog));
-        printf("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n");
-        printf("%s\n", infoLog);
-    }
-    // link shaders
+void initRender(struct Render* render, char mainVertexPath[500], char mainFragmentPath[500], char shadowVertexPath[500], char shadowFragmentPath[500], char shadowGeometryPath[500]) {
+    DEBUG_LOG("Init render");
+
+    unsigned int vertexShader;
+    DEBUG_LOG("Init vertex shader");
+    initShader(&vertexShader, GL_VERTEX_SHADER, mainVertexPath);
+
+    unsigned int fragmentShader;
+    DEBUG_LOG("Init fragment shader");
+    initShader(&fragmentShader, GL_FRAGMENT_SHADER, mainFragmentPath);
+
+
+    // link main shaders
     DEBUG_LOG("Linking shaders to program");
-    GL_CALL(render->program = glCreateProgram());
-    GL_CALL(glAttachShader(render->program, vertexShader));
-    GL_CALL(glAttachShader(render->program, fragmentShader));
-    GL_CALL(glLinkProgram(render->program));
+    GL_CALL(render->mainProgram = glCreateProgram());
+    GL_CALL(glAttachShader(render->mainProgram, vertexShader));
+    GL_CALL(glAttachShader(render->mainProgram, fragmentShader));
+    GL_CALL(glLinkProgram(render->mainProgram));
     // check for linking errors
-    GL_CALL(glGetProgramiv(render->program, GL_LINK_STATUS, &success));
+    int success;
+    GL_CALL(glGetProgramiv(render->mainProgram, GL_LINK_STATUS, &success));
     if (!success) {
-        GL_CALL(glGetShaderInfoLog(render->program, 512, NULL, infoLog));
-        printf("ERROR::SHADER::PROGRAM::COMPILATION_FAILED\n");
+        char infoLog[10000];
+        glGetShaderInfoLog(render->mainProgram, 10000, NULL, infoLog);
+        printf("Shader Program Compilaton Error\n");
         printf("%s\n", infoLog);
+        exit(0);
     }
     DEBUG_LOG("Deleting shaders");
     GL_CALL(glDeleteShader(vertexShader));
     GL_CALL(glDeleteShader(fragmentShader));
+
+
+
+
+    DEBUG_LOG("Init vertex shader");
+    initShader(&vertexShader, GL_VERTEX_SHADER, shadowVertexPath);
+
+    DEBUG_LOG("Init fragment shader");
+    initShader(&fragmentShader, GL_FRAGMENT_SHADER, shadowFragmentPath);
+
+    unsigned int geometryShader;
+    DEBUG_LOG("Init fragment shader");
+    initShader(&geometryShader, GL_GEOMETRY_SHADER, shadowGeometryPath);
+
+
+    // link main shaders
+    DEBUG_LOG("Linking shaders to program");
+    GL_CALL(render->shadowProgram = glCreateProgram());
+    GL_CALL(glAttachShader(render->shadowProgram, vertexShader));
+    GL_CALL(glAttachShader(render->shadowProgram, fragmentShader));
+    GL_CALL(glAttachShader(render->shadowProgram, geometryShader));
+    GL_CALL(glLinkProgram(render->shadowProgram));
+    // check for linking errors
+    GL_CALL(glGetProgramiv(render->shadowProgram, GL_LINK_STATUS, &success));
+    if (!success) {
+        char infoLog[10000];
+        glGetShaderInfoLog(render->shadowProgram, 10000, NULL, infoLog);
+        printf("Shader Program Compilaton Error\n");
+        printf("%s\n", infoLog);
+        exit(0);
+    }
+    DEBUG_LOG("Deleting shaders");
+    GL_CALL(glDeleteShader(vertexShader));
+    GL_CALL(glDeleteShader(fragmentShader));
+    GL_CALL(glDeleteShader(geometryShader));
+
+
+
+
+
+    /* Lighting Init */
+    render->shadowWidth = 1024;
+    render->shadowHeight = 1024;
+
+    for (int i = 0; i < 10; i++) {
+        glGenFramebuffers(1, &render->depthMapFBO[i]);
+
+
+        glGenTextures(1, &render->depthCubemap[i]);
+
+        glBindTexture(GL_TEXTURE_CUBE_MAP, render->depthCubemap[i]);
+        for (unsigned int j = 0; j < 6; j++) {
+            GL_CALL(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + j, 0, GL_DEPTH_COMPONENT, render->shadowWidth, render->shadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));  
+        }
+
+
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
+
+        glBindFramebuffer(GL_FRAMEBUFFER, render->depthMapFBO[i]);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, render->depthCubemap[i], 0);
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); 
+    }
+
+
+    render->shadowAspect = (float)render->shadowWidth/(float)render->shadowHeight;
+    render->shadowNear = 1.0f;
+    render->shadowFar = 25.0f;
+    //glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), aspect, near, far); 
+    mat4x4_perspective(render->shadowProj, 1.5708f, render->shadowAspect, render->shadowNear, render->shadowFar);
 }
 
 
 void freeRender(struct Render* render) {
     DEBUG_LOG("Free renderer");
-    GL_CALL(glDeleteProgram(render->program));
+    GL_CALL(glDeleteProgram(render->mainProgram));
+    GL_CALL(glDeleteProgram(render->shadowProgram));
+    GL_CALL(glDeleteTextures(10, &render->depthCubemap[0]));
 }
+/*
+void renderActual(struct Render* render, struct Camera* camera, int modelSize, struct Model models[]) {
+    for (int i = 0; i < modelSize; i++) {
+        DEBUG_LOG("    Rendering model:%i", i);
+        DEBUG_LOG("        Recalculate mvp matrix");
+        mat4x4 mvp;
+        mat4x4_identity(mvp);
+        mat4x4_mul(mvp, camera->projViewMat, models[i].modelMat);
+
+        DEBUG_LOG("        Set model uniforms");
+
+        GL_CALL(int mvpLoc = glGetUniformLocation(render->mainProgram, "mvp"));
+        GL_CALL(glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &mvp[0][0]));
+
+        GL_CALL(int modelLoc = glGetUniformLocation(render->mainProgram, "model"));
+        GL_CALL(glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &models[i].modelMat[0][0]));
+
+        GL_CALL(int specularStrengthLoc = glGetUniformLocation(render->mainProgram, "specularStr"));
+        GL_CALL(glUniform1f(specularStrengthLoc, models[i].specularStrength));
+
+        DEBUG_LOG("        Render triangels");
+        GL_CALL(glBindVertexArray(models[i].VAO));
+        GL_CALL(glDrawElements(GL_TRIANGLES, models[i].indicesSize, GL_UNSIGNED_INT, 0));
+    }
+}*/
 
 
 void renderFrame(struct Render* render, struct Camera* camera, int modelSize, struct Model models[], int lightSize, struct Light light[]) {
     DEBUG_LOG("Render Frame\n");
     //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-
-    DEBUG_LOG("    Recalculate camera view matrices");
-    calcView(camera);
-    calcProjView(camera);
 
     // Render
     //GL_CALL(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
@@ -83,31 +177,101 @@ void renderFrame(struct Render* render, struct Camera* camera, int modelSize, st
     //glClear(GL_COLOR_BUFFER_BIT);
     GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
-    DEBUG_LOG("    Load Renderer");
-    GL_CALL(glUseProgram(render->program));
+    DEBUG_LOG("    Recalculate camera view matrices");
+    calcView(camera);
+    calcProjView(camera);
+
+    glViewport(0, 0, render->shadowWidth, render->shadowHeight);
 
 
-    DEBUG_LOG("    Set lighting uniforms");
+
     vec3 lightPositions[lightSize];
     vec3 lightColors[lightSize];
+
 
     for (int i = 0; i < lightSize; i++) {
         vec3_dup(lightPositions[i], light[i].worldPos);
         vec3_dup(lightColors[i], light[i].lightColor);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, render->depthMapFBO[i]);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        DEBUG_LOG("    Load Shadow Renderer");
+        GL_CALL(glUseProgram(render->shadowProgram));
+        GL_CALL(int shadowMatricesLocShadow = glGetUniformLocation(render->shadowProgram, "shadowMatrices"));
+        GL_CALL(glUniformMatrix4fv(shadowMatricesLocShadow, 6, false, &light[i].shadowTransforms[0][0][0]));
+
+
+        GL_CALL(int farPlaneLocShadow = glGetUniformLocation(render->shadowProgram, "farPlane"));
+        GL_CALL(glUniform1f(farPlaneLocShadow, render->shadowFar));
+
+
+        GL_CALL(int lightPosLocShadow = glGetUniformLocation(render->shadowProgram, "lightPos"));
+        GL_CALL(glUniform3fv(lightPosLocShadow, 1, lightPositions[i]));
+
+        for (int i = 0; i < modelSize; i++) {
+            /*DEBUG_LOG("    Rendering model:%i", i);
+            DEBUG_LOG("        Recalculate mvp matrix");
+            mat4x4 mvp;
+            mat4x4_identity(mvp);
+            mat4x4_mul(mvp, camera->projViewMat, models[i].modelMat);
+
+            DEBUG_LOG("        Set model uniforms");
+
+            GL_CALL(int mvpLoc = glGetUniformLocation(render->mainProgram, "mvp"));
+            GL_CALL(glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &mvp[0][0]));*/
+
+            GL_CALL(int modelLoc = glGetUniformLocation(render->shadowProgram, "model"));
+            GL_CALL(glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &models[i].modelMat[0][0]));
+
+            DEBUG_LOG("        Render triangels");
+            GL_CALL(glBindVertexArray(models[i].VAO));
+            GL_CALL(glDrawElements(GL_TRIANGLES, models[i].indicesSize, GL_UNSIGNED_INT, 0));
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    GL_CALL(int lightNumberLoc = glGetUniformLocation(render->program, "lightNumber"));
+
+
+   
+
+
+
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    DEBUG_LOG("    Load Main Renderer");
+    GL_CALL(glUseProgram(render->mainProgram));
+
+    int depthMapIndexes[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+    for (int i = 0; i < lightSize; i++) {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, render->depthCubemap[i]);
+    }
+
+
+    DEBUG_LOG("    Set lighting uniforms");
+
+    GL_CALL(int lightNumberLoc = glGetUniformLocation(render->mainProgram, "lightNumber"));
     GL_CALL(glUniform1i(lightNumberLoc, lightSize));
 
+    GL_CALL(int depthMapLoc = glGetUniformLocation(render->mainProgram, "depthMap"));
+    glUniform1iv(depthMapLoc, lightSize, &depthMapIndexes[0]);
 
-    GL_CALL(int lightPosLoc = glGetUniformLocation(render->program, "lightPos"));
+    GL_CALL(int farPlaneLoc = glGetUniformLocation(render->mainProgram, "farPlane"));
+    GL_CALL(glUniform1f(farPlaneLoc, render->shadowFar));
+
+
+    GL_CALL(int lightPosLoc = glGetUniformLocation(render->mainProgram, "lightPos"));
     GL_CALL(glUniform3fv(lightPosLoc, lightSize, lightPositions[0]));
 
-    GL_CALL(int lightColLoc = glGetUniformLocation(render->program, "lightCol"));
+    GL_CALL(int lightColLoc = glGetUniformLocation(render->mainProgram, "lightCol"));
     GL_CALL(glUniform3fv(lightColLoc, lightSize, lightColors[0]));
     //printf("1:%f, 2:%f, 3:%f\n", lightColors[0][0], lightColors[0][1], lightColors[0][2]);
 
-    GL_CALL(int viewPosLoc = glGetUniformLocation(render->program, "viewPos"));
+    GL_CALL(int viewPosLoc = glGetUniformLocation(render->mainProgram, "viewPos"));
     GL_CALL(glUniform3fv(viewPosLoc, 1, camera->position));
 
 
@@ -120,14 +284,14 @@ void renderFrame(struct Render* render, struct Camera* camera, int modelSize, st
 
         DEBUG_LOG("        Set model uniforms");
 
-        GL_CALL(int mvpLoc = glGetUniformLocation(render->program, "mvp"));
+        GL_CALL(int mvpLoc = glGetUniformLocation(render->mainProgram, "mvp"));
         GL_CALL(glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &mvp[0][0]));
 
-        GL_CALL(int modelLoc = glGetUniformLocation(render->program, "model"));
+        GL_CALL(int modelLoc = glGetUniformLocation(render->mainProgram, "model"));
         GL_CALL(glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &models[i].modelMat[0][0]));
 
-        GL_CALL(int specularStrengthLoc = glGetUniformLocation(render->program, "specularStr"));
-        GL_CALL(glUniform1fv(specularStrengthLoc, 1, &models[i].specularStrength));
+        GL_CALL(int specularStrengthLoc = glGetUniformLocation(render->mainProgram, "specularStr"));
+        GL_CALL(glUniform1f(specularStrengthLoc, models[i].specularStrength));
 
         DEBUG_LOG("        Render triangels");
         GL_CALL(glBindVertexArray(models[i].VAO));

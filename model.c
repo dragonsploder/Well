@@ -49,8 +49,13 @@ void loadModel(struct Model* model, char path[500]) {
     model->verticesSize = (int) (mesh->position_count - 1) * 3;
     model->indicesSize = (int) mesh->groups[0].face_count * 3;
 
-    model->vertices = malloc(model->verticesSize + 1);
-    model->indices = malloc(model->indicesSize + 1);
+    model->vertices = malloc((model->verticesSize + 1) * sizeof(float));
+    model->indices = malloc((model->indicesSize + 1) * sizeof(unsigned int));
+
+    if (model->vertices == NULL || model->indices == NULL) {
+        printf("Could not allocate memory for %s\n", path);
+        exit(0);
+    }
 
     int indicesIndex = 0;
 
