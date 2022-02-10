@@ -1,5 +1,24 @@
 #include "well.h"
 
+void setCurrentPalletDirect(struct Render* render, vec3 colors[4]) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 3; j++) {
+            colors[i][j] /= 255.0;
+        }
+    }
+
+    vec3_dup(render->pallet[0], colors[0]);
+    vec3_dup(render->pallet[1], colors[1]);
+    vec3_dup(render->pallet[2], colors[2]);
+    vec3_dup(render->pallet[3], colors[3]);
+}
+
+void setCurrentPalletGameState(struct Render* render, struct GameState* gameState) {
+    vec3_dup(render->pallet[0], gameState->currentPallet[0]);
+    vec3_dup(render->pallet[1], gameState->currentPallet[1]);
+    vec3_dup(render->pallet[2], gameState->currentPallet[2]);
+    vec3_dup(render->pallet[3], gameState->currentPallet[3]);
+}
 
 void initShader(unsigned int* shader, unsigned int shaderType, char path[500]) {
     char *shaderSource;
@@ -26,6 +45,13 @@ void initShader(unsigned int* shader, unsigned int shaderType, char path[500]) {
 
 void initRender(struct Render* render, char mainVertexPath[500], char mainFragmentPath[500], char shadowVertexPath[500], char shadowFragmentPath[500], char shadowGeometryPath[500]) {
     DEBUG_LOG("Init render");
+
+
+    render->currentWidth = WINDOW_WIDTH;
+    render->currentHeight = WINDOW_HEIGHT;
+
+    render->currentPixelWidth = PIXEL_WINDOW_WIDTH;
+    render->currentPixelHeight = PIXEL_WINDOW_HEIGHT;
 
     unsigned int vertexShader;
     DEBUG_LOG("Init vertex shader");
@@ -130,6 +156,34 @@ void initRender(struct Render* render, char mainVertexPath[500], char mainFragme
     render->shadowFar = 25.0f;
     //glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), aspect, near, far); 
     mat4x4_perspective(render->shadowProj, 1.5708f, render->shadowAspect, render->shadowNear, render->shadowFar);
+
+
+    glGenFramebuffers(1, &render->scaleFramebuffer);
+
+    unsigned int color;
+    unsigned int depth;
+    glGenTextures(1, &color);
+    glGenRenderbuffers(1, &depth);
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER, render->scaleFramebuffer);
+
+    glBindTexture(GL_TEXTURE_2D, color);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, render->currentWidth, render->currentHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, render->currentWidth, render->currentHeight);
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
+
+
+    vec3 pallet[4] = {20, 20, 20, 100, 100, 100, 150, 150, 150, 220, 220, 220};
+
+    setCurrentPalletDirect(render, pallet);
 }
 
 
@@ -139,34 +193,16 @@ void freeRender(struct Render* render) {
     GL_CALL(glDeleteProgram(render->shadowProgram));
     GL_CALL(glDeleteTextures(10, &render->depthCubemap[0]));
 }
-/*
-void renderActual(struct Render* render, struct Camera* camera, int modelSize, struct Model models[]) {
-    for (int i = 0; i < modelSize; i++) {
-        DEBUG_LOG("    Rendering model:%i", i);
-        DEBUG_LOG("        Recalculate mvp matrix");
-        mat4x4 mvp;
-        mat4x4_identity(mvp);
-        mat4x4_mul(mvp, camera->projViewMat, models[i].modelMat);
 
-        DEBUG_LOG("        Set model uniforms");
+void renderFrame(struct Render* render, struct Camera* camera, struct GameState* gameState, int modelSize, struct Model models[], int lightSize, struct Light light[]) {
+    render->currentWidth = gameState->currentWindowWidth;
+    render->currentHeight = gameState->currentWindowHeight;
 
-        GL_CALL(int mvpLoc = glGetUniformLocation(render->mainProgram, "mvp"));
-        GL_CALL(glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &mvp[0][0]));
-
-        GL_CALL(int modelLoc = glGetUniformLocation(render->mainProgram, "model"));
-        GL_CALL(glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &models[i].modelMat[0][0]));
-
-        GL_CALL(int specularStrengthLoc = glGetUniformLocation(render->mainProgram, "specularStr"));
-        GL_CALL(glUniform1f(specularStrengthLoc, models[i].specularStrength));
-
-        DEBUG_LOG("        Render triangels");
-        GL_CALL(glBindVertexArray(models[i].VAO));
-        GL_CALL(glDrawElements(GL_TRIANGLES, models[i].indicesSize, GL_UNSIGNED_INT, 0));
-    }
-}*/
-
-
-void renderFrame(struct Render* render, struct Camera* camera, int modelSize, struct Model models[], int lightSize, struct Light light[]) {
+    render->currentPixelWidth = gameState->currentPixelWidth;
+    render->currentPixelHeight = gameState->currentPixelHeight;
+    
+    
+    
     DEBUG_LOG("Render Frame\n");
     //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
@@ -233,11 +269,13 @@ void renderFrame(struct Render* render, struct Camera* camera, int modelSize, st
 
 
 
-   
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glEnable(GL_TEXTURE_2D);
+    glBindFramebuffer(GL_FRAMEBUFFER, render->scaleFramebuffer);
 
 
 
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    glViewport(0, 0, render->currentPixelWidth, render->currentPixelHeight);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -275,6 +313,10 @@ void renderFrame(struct Render* render, struct Camera* camera, int modelSize, st
     GL_CALL(glUniform3fv(viewPosLoc, 1, camera->position));
 
 
+    GL_CALL(int palletLoc = glGetUniformLocation(render->mainProgram, "pallet"));
+    GL_CALL(glUniform3fv(palletLoc, 4, render->pallet[0]));
+
+
     for (int i = 0; i < modelSize; i++) {
         DEBUG_LOG("    Rendering model:%i", i);
         DEBUG_LOG("        Recalculate mvp matrix");
@@ -297,4 +339,9 @@ void renderFrame(struct Render* render, struct Camera* camera, int modelSize, st
         GL_CALL(glBindVertexArray(models[i].VAO));
         GL_CALL(glDrawElements(GL_TRIANGLES, models[i].indicesSize, GL_UNSIGNED_INT, 0));
     }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, render->scaleFramebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    glBlitFramebuffer(0, 0, render->currentPixelWidth, render->currentPixelHeight, 0, 0, render->currentWidth, render->currentHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }

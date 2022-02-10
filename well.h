@@ -4,13 +4,30 @@
 #include <GLFW/glfw3.h>
 #include "linmath.h"
 
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_KEYSTATE_BASED_INPUT
+#include "nuklear.h"
+#include "nuklear_glfw_gl3.h"
+
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
+
+
+#define ACTUAL_TO_PIXEL_CONVETION 5
+#define PIXEL_WINDOW_WIDTH (WINDOW_WIDTH / ACTUAL_TO_PIXEL_CONVETION)
+#define PIXEL_WINDOW_HEIGHT (WINDOW_HEIGHT / ACTUAL_TO_PIXEL_CONVETION)
 
 
 #define DEBUG true
@@ -28,6 +45,19 @@
 
     #define DEBUG_LOG(...)
 #endif
+
+struct GameState {
+    int currentWindowWidth;
+    int currentWindowHeight;
+
+    int actualToPixelConvertion;
+    int currentPixelWidth;
+    int currentPixelHeight;
+
+    vec3 currentPallet[4];
+
+    float currentFPS;
+};
 
 
 struct Camera {
@@ -50,6 +80,12 @@ struct Camera {
 
 
 struct Render {
+    unsigned int currentWidth;
+    unsigned int currentHeight;
+    unsigned int currentPixelWidth;
+    unsigned int currentPixelHeight;
+
+
     unsigned int mainProgram;
     unsigned int shadowProgram;
 
@@ -62,8 +98,15 @@ struct Render {
     float shadowAspect;
     float shadowNear;
     float shadowFar;
+
+    unsigned int scaleFramebuffer;
+    vec3 pallet[4];
 };
 
+struct UI {
+    struct nk_glfw glfw;
+//    struct nk_colorf bg;
+};
 
 struct Model {
     // Mesh data
@@ -103,11 +146,14 @@ extern void calcProjView(struct Camera* Camera);
 extern void initCamera(struct Camera* camera, float FOV, int width, int height, float near, float far);
 
 // render.c
+
+extern void setCurrentPalletDirect(struct Render* render, vec3 colors[4]);
+extern void setCurrentPalletGameState(struct Render* render, struct GameState* gameState);
 extern void initShader(unsigned int* shader, unsigned int shaderType, char path[500]);
 extern void initRender(struct Render* render, char mainVertexPath[500], char mainFragmentPath[500], char shadowVertexPath[500], char shadowFragmentPath[500], char shadowGeometryPath[500]);
 extern void freeRender(struct Render* render);
 extern void renderActual(struct Render* render, struct Camera* camera, int modelSize, struct Model models[]);
-extern void renderFrame(struct Render* render, struct Camera* camera, int modelSize, struct Model models[], int lightSize, struct Light light[]);
+extern void renderFrame(struct Render* render, struct Camera* camera, struct GameState* gameState, int modelSize, struct Model models[], int lightSize, struct Light light[]);
 
 // model.c 
 extern void reCalcModelMat(struct Model* model);
@@ -121,3 +167,10 @@ extern void initLight(struct Light* light, vec3 pos, vec3 color, struct Render r
 // misc.c
 extern void defVec3(vec3* vec, float x, float y, float z);
 extern bool readFile(char path[200], char** fileData, size_t* size);
+
+
+// ui.c
+extern void initUI(struct UI* ui, GLFWwindow* window);
+extern void newUIFrame(struct UI* ui, struct GameState* gameState);
+extern void renderUI(struct UI* ui);
+extern void freeUI(struct UI* ui);

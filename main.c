@@ -5,8 +5,6 @@ GLFWwindow* init() {
         fclose(fopen(LOG_FILE, "w"));
     #endif
 
-
-
     /* Create window and GL context via GLFW */
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -14,6 +12,9 @@ GLFWwindow* init() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
+    #ifdef __APPLE__
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    #endif
 
     GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Well", 0, 0);
     if (window == NULL) {
@@ -48,16 +49,39 @@ int main() {
     struct Render mainRender;
     initRender(&mainRender, "resources/shaders/main.vs", "resources/shaders/main.fs", "resources/shaders/shadow.vs", "resources/shaders/shadow.fs", "resources/shaders/shadow.gs");
 
+    
+    //vec3 pallet[4] = {50, 50, 57, 58, 99, 81, 228, 130, 87, 242, 237, 215};
+    //setCurrentPallet(&mainRender, pallet);
+
     //struct Render outlineRender;
     //initRender(&outlineRender, "resources/shaders/main.vs", "resources/shaders/outline.fs");
 
     struct Camera camera;
-    initCamera(&camera, 1.4f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.01f, 100.0f);
+    initCamera(&camera, 1.57f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.01f, 100.0f);
+
+
+    struct UI ui = {0};
+    initUI(&ui, window);
+
+
+    struct GameState gameState;
+    gameState.currentWindowWidth = WINDOW_WIDTH;
+    gameState.currentWindowHeight = WINDOW_HEIGHT;
+    gameState.actualToPixelConvertion = ACTUAL_TO_PIXEL_CONVETION;
+    gameState.currentPixelWidth = PIXEL_WINDOW_WIDTH;
+    gameState.currentPixelHeight = PIXEL_WINDOW_HEIGHT;
+    float pallet[12] = {50.0/255.0, 50.0/255.0, 57.0/255.0, 58.0/255.0, 99.0/255.0, 81.0/255.0, 228.0/255.0, 130.0/255.0, 87.0/255.0, 242.0/255.0, 237.0/255.0, 215.0/255.0};
+    vec3_dup(gameState.currentPallet[0], &pallet[0]);
+    vec3_dup(gameState.currentPallet[1], &pallet[3]);
+    vec3_dup(gameState.currentPallet[2], &pallet[6]);
+    vec3_dup(gameState.currentPallet[3], &pallet[9]);
+    gameState.currentFPS = 0.0f;
 
     struct Model model;
-    loadModel(&model, "resources/objects/cube.obj");
-    //loadModel(&model, "resources/objects/arch.obj");
-    model.worldScale = 0.4;
+    //loadModel(&model, "resources/objects/cube.obj");
+    loadModel(&model, "resources/objects/arch2.obj");
+    model.worldScale = 0.8;
+    model.worldPos[0] = 1.0f;
     model.worldPos[1] = -1.0f;
     reCalcModelMat(&model);
 
@@ -81,7 +105,7 @@ int main() {
     reCalcModelMat(&model3);
 
     struct Light light2;
-    initLight(&light2, (vec3) {1.0f, 1.0f, 1.0f}, (vec3) {1.0f, 1.0f, 1.0f}, mainRender);
+    initLight(&light2, (vec3) {1.0f, 1.0f, 1.0f}, (vec3) {0.5f, 0.5f, 0.5f}, mainRender);
 
     struct Model model4;
     loadModel(&model4, "resources/objects/sphere.obj");
@@ -111,8 +135,17 @@ int main() {
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+        gameState.currentFPS = 1.0/deltaTime;
         DEBUG_LOG("Time since init:%f", currentFrame);
-        DEBUG_LOG("FPS (at current frame):%f", 1.0/deltaTime);
+        DEBUG_LOG("FPS (at current frame):%f", gameState.currentFPS);
+
+
+
+        newUIFrame(&ui, &gameState);
+        gameState.currentPixelWidth = gameState.currentWindowWidth / gameState.actualToPixelConvertion;
+        gameState.currentPixelHeight = gameState.currentWindowHeight / gameState.actualToPixelConvertion;
+        setCurrentPalletGameState(&mainRender, &gameState);
+
         //printf("FPS:%f\n", 1.0/deltaTime);
 
         //model.worldRot[0] = rx;
@@ -121,6 +154,8 @@ int main() {
         //model.worldRot[1] = ry;
         //ry += 0.5 * deltaTime;
         theta += 0.5 * deltaTime;
+
+    
 
         //reCalcModelMat(&model);
 
@@ -134,10 +169,11 @@ int main() {
         struct Light lights[2] = {light, light2};
 
 
-        renderFrame(&mainRender, &camera, 4, models, 2, lights);
+        renderFrame(&mainRender, &camera, &gameState, 3, models, 1, lights);
         //renderFrame(&mainRender, &camera, 1, &model2);
 
 
+        renderUI(&ui);
 
         // Swap Buffers and Poll Events
         glfwSwapBuffers(window);
@@ -146,7 +182,8 @@ int main() {
 
     freeModel(&model);
     freeRender(&mainRender);
+    freeUI(&ui);
 
-
+    
     terminate();
 }

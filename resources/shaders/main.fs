@@ -10,6 +10,8 @@ uniform vec3 lightCol[10];
 uniform float specularStr;
 uniform vec3 viewPos;
 
+uniform vec3 pallet[4];
+
 out vec4 FragColor;  
 
 
@@ -71,5 +73,21 @@ void main() {
 
     vec3 result = lightTotal * objectColor;
     //vec3 result = objectColor;
-    FragColor = vec4(result, 1.0);  
+
+    result.x = pallet[int(round(result.x * 3))].x;
+    result.y = pallet[int(round(result.y * 3))].y;
+    result.z = pallet[int(round(result.z * 3))].z;
+
+
+
+    // int clamp[3];
+    // clamp[0] = int(result.x * 4.0);
+    // clamp[1] = int(result.y * 4.0);
+    // clamp[2] = int(result.z * 4.0);
+
+    // result.x = float(clamp[0]) / 4.0;
+    // result.y = float(clamp[1]) / 4.0;
+    // result.z = float(clamp[2]) / 4.0;
+
+    FragColor = vec4(result, 1.0); 
 }
