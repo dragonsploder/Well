@@ -24,6 +24,7 @@ GLFWwindow* init() {
     }
 
     glfwMakeContextCurrent(window);
+    // Vsync
     glfwSwapInterval(1);
 
     // Load Glad
@@ -47,7 +48,7 @@ int main() {
     GLFWwindow* window = init();
 
     struct Render mainRender;
-    initRender(&mainRender, "resources/shaders/main.vs", "resources/shaders/main.fs", "resources/shaders/shadow.vs", "resources/shaders/shadow.fs", "resources/shaders/shadow.gs");
+    initRender(&mainRender, "../../resources/shaders/main.vs", "../../resources/shaders/main.fs", "../../resources/shaders/shadow.vs", "../../resources/shaders/shadow.fs", "../../resources/shaders/shadow.gs");
 
     
     //vec3 pallet[4] = {50, 50, 57, 58, 99, 81, 228, 130, 87, 242, 237, 215};
@@ -77,17 +78,21 @@ int main() {
     vec3_dup(gameState.currentPallet[3], &pallet[9]);
     gameState.currentFPS = 0.0f;
 
+    initPhysics(&gameState);
+
     struct Model model;
     //loadModel(&model, "resources/objects/cube.obj");
-    loadModel(&model, "resources/objects/arch2.obj");
+    loadModel(&model, "../../resources/objects/cube.obj");
     model.worldScale = 0.8;
-    model.worldPos[0] = 1.0f;
-    model.worldPos[1] = -1.0f;
+    model.worldPos[0] = 0.0f;
+    model.worldPos[1] = 0.0f;
     reCalcModelMat(&model);
+
+    initPhysicsObj(&model, &gameState);
 
 
     struct Model model2;
-    loadModel(&model2, "resources/objects/plane.obj");
+    loadModel(&model2, "../../resources/objects/plane.obj");
     model2.worldScale = 5.0;
     model2.worldPos[1] = -2.5;
     reCalcModelMat(&model2);
@@ -98,7 +103,7 @@ int main() {
 
 
     struct Model model3;
-    loadModel(&model3, "resources/objects/sphere.obj");
+    loadModel(&model3, "../../resources/objects/sphere.obj");
     model3.worldScale = 0.2;
     vec3_dup(model3.worldPos, light.worldPos);
     //defVec3(&model3.worldPos, 3.0f, 3.0f, -3.0f);
@@ -108,7 +113,7 @@ int main() {
     initLight(&light2, (vec3) {1.0f, 1.0f, 1.0f}, (vec3) {0.5f, 0.5f, 0.5f}, mainRender);
 
     struct Model model4;
-    loadModel(&model4, "resources/objects/sphere.obj");
+    loadModel(&model4, "../../resources/objects/sphere.obj");
     model4.worldScale = 0.2;
     vec3_dup(model4.worldPos, light2.worldPos);
     //defVec3(&model3.worldPos, 3.0f, 3.0f, -3.0f);
@@ -122,9 +127,13 @@ int main() {
     float ry = 0;
     float theta = 0;
 
+    double computationStartTime = 0;
+    double computationEndTime = 0;
 
     // Render loop
     while (!glfwWindowShouldClose(window)) {
+        computationStartTime = glfwGetTime();
+
         // Input
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, true);
@@ -159,7 +168,12 @@ int main() {
 
         //reCalcModelMat(&model);
 
-        defVec3(&camera.position, 5 * cos(theta), 0.0f, 5 * sin(theta));
+        //defVec3(&camera.position, 5 * cos(theta), 0.0f, 5 * sin(theta));
+
+
+        stepPhysics(&gameState, FRAME_RATE_LOCK);
+        getPhysicsObjData(&model);
+        reCalcModelMat(&model);
 
         calcView(&camera);
 
@@ -178,7 +192,21 @@ int main() {
         // Swap Buffers and Poll Events
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        computationEndTime = glfwGetTime();
+        double extraTime = (FRAME_RATE_LOCK - (computationEndTime - computationStartTime));
+        if (extraTime < 0) {
+            printf("Unable to compleat tasks in %d seconds.\n", FRAME_RATE_LOCK);
+        } else {
+            printf("Compleat tasks with %d seconds left over.\n", extraTime);
+            do {
+                computationEndTime = glfwGetTime();
+                extraTime = (FRAME_RATE_LOCK - (computationEndTime - computationStartTime));
+            } while (extraTime > 0);
+        }
     }
+
+    freePhysics(&gameState);
 
     freeModel(&model);
     freeRender(&mainRender);

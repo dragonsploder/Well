@@ -221,8 +221,8 @@ void renderFrame(struct Render* render, struct Camera* camera, struct GameState*
 
 
 
-    vec3 lightPositions[lightSize];
-    vec3 lightColors[lightSize];
+    vec3 lightPositions[MAX_LIGHTS];
+    vec3 lightColors[MAX_LIGHTS];
 
 
     for (int i = 0; i < lightSize; i++) {

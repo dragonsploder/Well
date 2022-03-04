@@ -1,5 +1,7 @@
 #pragma once
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "linmath.h"
@@ -21,6 +23,10 @@
 #include "nuklear.h"
 #include "nuklear_glfw_gl3.h"
 
+
+#define dDOUBLE
+#include "ode/ode.h"
+
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
@@ -28,6 +34,11 @@
 #define ACTUAL_TO_PIXEL_CONVETION 5
 #define PIXEL_WINDOW_WIDTH (WINDOW_WIDTH / ACTUAL_TO_PIXEL_CONVETION)
 #define PIXEL_WINDOW_HEIGHT (WINDOW_HEIGHT / ACTUAL_TO_PIXEL_CONVETION)
+
+
+#define FRAME_RATE_LOCK (1.0f / 60.0f)
+
+#define MAX_LIGHTS 10
 
 
 #define DEBUG true
@@ -57,6 +68,12 @@ struct GameState {
     vec3 currentPallet[4];
 
     float currentFPS;
+
+
+
+    dWorldID world;
+    dSpaceID space;
+    dJointGroupID contactgroup;
 };
 
 
@@ -127,6 +144,11 @@ struct Model {
 
     mat4x4 modelMat;
     float specularStrength;
+
+    // Physics
+    bool physics;
+    dBodyID body;	
+    dMass mass;
 };
 
 struct Light {
@@ -174,3 +196,10 @@ extern void initUI(struct UI* ui, GLFWwindow* window);
 extern void newUIFrame(struct UI* ui, struct GameState* gameState);
 extern void renderUI(struct UI* ui);
 extern void freeUI(struct UI* ui);
+
+// physics.c
+extern void initPhysics(struct GameState* gameState);
+extern void initPhysicsObj(struct Model* model, struct GameState* gameState);
+extern void stepPhysics(struct GameState* gameState, double stepSize);
+extern void getPhysicsObjData(struct Model* model);
+extern void freePhysics(struct GameState* gameState);

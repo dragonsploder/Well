@@ -37,7 +37,7 @@ void initUI(struct UI* ui, GLFWwindow* window) {
     nk_font_atlas_init_default(&ui->glfw.atlas);
     nk_font_atlas_begin(&ui->glfw.atlas);
     atlas = &ui->glfw.atlas;
-    struct nk_font *droid = nk_font_atlas_add_from_file(atlas, "resources/fonts/DroidSans.ttf", 28, 0);
+    struct nk_font *droid = nk_font_atlas_add_from_file(atlas, "../../resources/fonts/DroidSans.ttf", 28, 0);
     /*struct nk_font *roboto = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Roboto-Regular.ttf", 14, 0);*/
     /*struct nk_font *future = nk_font_atlas_add_from_file(atlas, "../../../extra_font/kenvector_future_thin.ttf", 13, 0);*/
     /*struct nk_font *clean = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyClean.ttf", 12, 0);*/
