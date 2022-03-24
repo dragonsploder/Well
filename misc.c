@@ -9,9 +9,9 @@
         unsigned int error;
         error = glGetError();
         if (error) {
-            printf("File:%s, Line:%i\n", file, line);
-            printf("    Function:%s\n", function);
-            printf("        Error:%u (0x%x)\n", error, error);
+            DEBUG_LOG("File:%s, Line:%i\n", file, line);
+            DEBUG_LOG("    Function:%s\n", function);
+            DEBUG_LOG("        Error:%u (0x%x)\n", error, error);
             exit(0);
         }
     }

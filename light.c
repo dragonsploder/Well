@@ -1,6 +1,7 @@
 #include "well.h"
 
 void reCalcLight(struct Light* light, struct Render render) {
+    DEBUG_LOG("Recalc Light");
     vec3 tmp;
 
     vec3_add(tmp, light->worldPos, (vec3) {1.0, 0.0, 0.0});

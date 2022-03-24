@@ -1,6 +1,7 @@
 #include "well.h"
 
 void setCurrentPalletDirect(struct Render* render, vec3 colors[4]) {
+    DEBUG_LOG("Set pallet directly");
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 3; j++) {
             colors[i][j] /= 255.0;
@@ -14,6 +15,7 @@ void setCurrentPalletDirect(struct Render* render, vec3 colors[4]) {
 }
 
 void setCurrentPalletGameState(struct Render* render, struct GameState* gameState) {
+    DEBUG_LOG("Update pallet indirectly though gamestate");
     vec3_dup(render->pallet[0], gameState->currentPallet[0]);
     vec3_dup(render->pallet[1], gameState->currentPallet[1]);
     vec3_dup(render->pallet[2], gameState->currentPallet[2]);
@@ -37,15 +39,14 @@ void initShader(unsigned int* shader, unsigned int shaderType, char path[500]) {
     GL_CALL(glGetShaderiv(*shader, GL_COMPILE_STATUS, &success));
     if (!success) {
         glGetShaderInfoLog(*shader, 10000, NULL, infoLog);
-        printf("Shader Compilation Failed\n");
-        printf("%s\n", infoLog);
+        DEBUG_LOG("Shader Compilation Failed\n");
+        DEBUG_LOG("%s\n", infoLog);
         exit(0);
     }
 }
 
 void initRender(struct Render* render, char mainVertexPath[500], char mainFragmentPath[500], char shadowVertexPath[500], char shadowFragmentPath[500], char shadowGeometryPath[500]) {
     DEBUG_LOG("Init render");
-
 
     render->currentWidth = WINDOW_WIDTH;
     render->currentHeight = WINDOW_HEIGHT;
@@ -54,16 +55,16 @@ void initRender(struct Render* render, char mainVertexPath[500], char mainFragme
     render->currentPixelHeight = PIXEL_WINDOW_HEIGHT;
 
     unsigned int vertexShader;
-    DEBUG_LOG("Init vertex shader");
+    DEBUG_LOG("    Init vertex shader");
     initShader(&vertexShader, GL_VERTEX_SHADER, mainVertexPath);
 
     unsigned int fragmentShader;
-    DEBUG_LOG("Init fragment shader");
+    DEBUG_LOG("    Init fragment shader");
     initShader(&fragmentShader, GL_FRAGMENT_SHADER, mainFragmentPath);
 
 
     // link main shaders
-    DEBUG_LOG("Linking shaders to program");
+    DEBUG_LOG("    Linking shaders to program");
     GL_CALL(render->mainProgram = glCreateProgram());
     GL_CALL(glAttachShader(render->mainProgram, vertexShader));
     GL_CALL(glAttachShader(render->mainProgram, fragmentShader));
@@ -74,30 +75,30 @@ void initRender(struct Render* render, char mainVertexPath[500], char mainFragme
     if (!success) {
         char infoLog[10000];
         glGetShaderInfoLog(render->mainProgram, 10000, NULL, infoLog);
-        printf("Shader Program Compilaton Error\n");
-        printf("%s\n", infoLog);
+        DEBUG_LOG("Shader Program Compilaton Error\n");
+        DEBUG_LOG("%s\n", infoLog);
         exit(0);
     }
-    DEBUG_LOG("Deleting shaders");
+    DEBUG_LOG("    Deleting shaders");
     GL_CALL(glDeleteShader(vertexShader));
     GL_CALL(glDeleteShader(fragmentShader));
 
 
 
 
-    DEBUG_LOG("Init vertex shader");
+    DEBUG_LOG("    Init vertex shader");
     initShader(&vertexShader, GL_VERTEX_SHADER, shadowVertexPath);
 
-    DEBUG_LOG("Init fragment shader");
+    DEBUG_LOG("    Init fragment shader");
     initShader(&fragmentShader, GL_FRAGMENT_SHADER, shadowFragmentPath);
 
     unsigned int geometryShader;
-    DEBUG_LOG("Init fragment shader");
+    DEBUG_LOG("    Init fragment shader");
     initShader(&geometryShader, GL_GEOMETRY_SHADER, shadowGeometryPath);
 
 
     // link main shaders
-    DEBUG_LOG("Linking shaders to program");
+    DEBUG_LOG("    Linking shaders to program");
     GL_CALL(render->shadowProgram = glCreateProgram());
     GL_CALL(glAttachShader(render->shadowProgram, vertexShader));
     GL_CALL(glAttachShader(render->shadowProgram, fragmentShader));
@@ -108,11 +109,11 @@ void initRender(struct Render* render, char mainVertexPath[500], char mainFragme
     if (!success) {
         char infoLog[10000];
         glGetShaderInfoLog(render->shadowProgram, 10000, NULL, infoLog);
-        printf("Shader Program Compilaton Error\n");
-        printf("%s\n", infoLog);
+        DEBUG_LOG("Shader Program Compilaton Error\n");
+        DEBUG_LOG("%s\n", infoLog);
         exit(0);
     }
-    DEBUG_LOG("Deleting shaders");
+    DEBUG_LOG("    Deleting shaders");
     GL_CALL(glDeleteShader(vertexShader));
     GL_CALL(glDeleteShader(fragmentShader));
     GL_CALL(glDeleteShader(geometryShader));
@@ -125,32 +126,35 @@ void initRender(struct Render* render, char mainVertexPath[500], char mainFragme
     render->shadowWidth = 1024;
     render->shadowHeight = 1024;
 
-    for (int i = 0; i < 10; i++) {
-        glGenFramebuffers(1, &render->depthMapFBO[i]);
+    for (int i = 0; i < MAX_LIGHTS; i++) {
+        DEBUG_LOG("       Gen depth map for light:%i", i);
 
+        GL_CALL(glGenFramebuffers(1, &render->depthMapFBO[i]));
+        GL_CALL(glGenTextures(1, &render->depthCubemap[i]));
+        GL_CALL(glBindTexture(GL_TEXTURE_CUBE_MAP, render->depthCubemap[i]));
 
-        glGenTextures(1, &render->depthCubemap[i]);
-
-        glBindTexture(GL_TEXTURE_CUBE_MAP, render->depthCubemap[i]);
         for (unsigned int j = 0; j < 6; j++) {
+            DEBUG_LOG("         Gen texture for cube map side:%i", j);
             GL_CALL(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + j, 0, GL_DEPTH_COMPONENT, render->shadowWidth, render->shadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));  
         }
 
+        DEBUG_LOG("       Setup cubmap params");
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+        GL_CALL(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));  
 
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
-
-        glBindFramebuffer(GL_FRAMEBUFFER, render->depthMapFBO[i]);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, render->depthCubemap[i], 0);
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0); 
+        DEBUG_LOG("       Setup depthmap framebuffer params");
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, render->depthMapFBO[i]));
+        GL_CALL(glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, render->depthCubemap[i], 0));
+        GL_CALL(glDrawBuffer(GL_NONE));
+        GL_CALL(glReadBuffer(GL_NONE));
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0)); 
     }
 
 
+    DEBUG_LOG("    Calc perspective mat");
     render->shadowAspect = (float)render->shadowWidth/(float)render->shadowHeight;
     render->shadowNear = 1.0f;
     render->shadowFar = 25.0f;
@@ -158,29 +162,27 @@ void initRender(struct Render* render, char mainVertexPath[500], char mainFragme
     mat4x4_perspective(render->shadowProj, 1.5708f, render->shadowAspect, render->shadowNear, render->shadowFar);
 
 
-    glGenFramebuffers(1, &render->scaleFramebuffer);
-
+    DEBUG_LOG("    Setup scaleing framebuffer");
+    GL_CALL(glGenFramebuffers(1, &render->scaleFramebuffer));
     unsigned int color;
     unsigned int depth;
-    glGenTextures(1, &color);
-    glGenRenderbuffers(1, &depth);
+    GL_CALL(glGenTextures(1, &color));
+    GL_CALL(glGenRenderbuffers(1, &depth));
 
 
-    glBindFramebuffer(GL_FRAMEBUFFER, render->scaleFramebuffer);
+    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, render->scaleFramebuffer));
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, color));
+    GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, render->currentWidth, render->currentHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
 
-    glBindTexture(GL_TEXTURE_2D, color);
+    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    GL_CALL(glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0));
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, render->currentWidth, render->currentHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    GL_CALL(glBindRenderbuffer(GL_RENDERBUFFER, depth));
+    GL_CALL(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, render->currentWidth, render->currentHeight));
+    GL_CALL(glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth));
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
-
-    glBindRenderbuffer(GL_RENDERBUFFER, depth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, render->currentWidth, render->currentHeight);
-    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
-
-
+    DEBUG_LOG("    Set default pallet");
     vec3 pallet[4] = {20, 20, 20, 100, 100, 100, 150, 150, 150, 220, 220, 220};
 
     setCurrentPalletDirect(render, pallet);
@@ -195,6 +197,8 @@ void freeRender(struct Render* render) {
 }
 
 void renderFrame(struct Render* render, struct Camera* camera, struct GameState* gameState, int modelSize, struct Model models[], int lightSize, struct Light light[]) {
+    DEBUG_LOG("Render Frame\n");
+    
     render->currentWidth = gameState->currentWindowWidth;
     render->currentHeight = gameState->currentWindowHeight;
 
@@ -203,7 +207,6 @@ void renderFrame(struct Render* render, struct Camera* camera, struct GameState*
     
     
     
-    DEBUG_LOG("Render Frame\n");
     //glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
     // Render
@@ -217,7 +220,7 @@ void renderFrame(struct Render* render, struct Camera* camera, struct GameState*
     calcView(camera);
     calcProjView(camera);
 
-    glViewport(0, 0, render->shadowWidth, render->shadowHeight);
+    GL_CALL(glViewport(0, 0, render->shadowWidth, render->shadowHeight));
 
 
 
@@ -226,13 +229,14 @@ void renderFrame(struct Render* render, struct Camera* camera, struct GameState*
 
 
     for (int i = 0; i < lightSize; i++) {
+        DEBUG_LOG("    Render depthMap for light:%i", i);
         vec3_dup(lightPositions[i], light[i].worldPos);
         vec3_dup(lightColors[i], light[i].lightColor);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, render->depthMapFBO[i]);
-        glClear(GL_DEPTH_BUFFER_BIT);
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, render->depthMapFBO[i]));
+        GL_CALL(glClear(GL_DEPTH_BUFFER_BIT));
 
-        DEBUG_LOG("    Load Shadow Renderer");
+        DEBUG_LOG("        Load Shadow Renderer");
         GL_CALL(glUseProgram(render->shadowProgram));
         GL_CALL(int shadowMatricesLocShadow = glGetUniformLocation(render->shadowProgram, "shadowMatrices"));
         GL_CALL(glUniformMatrix4fv(shadowMatricesLocShadow, 6, false, &light[i].shadowTransforms[0][0][0]));
@@ -245,39 +249,26 @@ void renderFrame(struct Render* render, struct Camera* camera, struct GameState*
         GL_CALL(int lightPosLocShadow = glGetUniformLocation(render->shadowProgram, "lightPos"));
         GL_CALL(glUniform3fv(lightPosLocShadow, 1, lightPositions[i]));
 
-        for (int i = 0; i < modelSize; i++) {
-            /*DEBUG_LOG("    Rendering model:%i", i);
-            DEBUG_LOG("        Recalculate mvp matrix");
-            mat4x4 mvp;
-            mat4x4_identity(mvp);
-            mat4x4_mul(mvp, camera->projViewMat, models[i].modelMat);
-
-            DEBUG_LOG("        Set model uniforms");
-
-            GL_CALL(int mvpLoc = glGetUniformLocation(render->mainProgram, "mvp"));
-            GL_CALL(glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, &mvp[0][0]));*/
+        for (int j = 0; j < modelSize; j++) {
+            DEBUG_LOG("         Render model:%i to depthMap", j);
 
             GL_CALL(int modelLoc = glGetUniformLocation(render->shadowProgram, "model"));
-            GL_CALL(glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &models[i].modelMat[0][0]));
+            GL_CALL(glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &models[j].modelMat[0][0]));
 
-            DEBUG_LOG("        Render triangels");
-            GL_CALL(glBindVertexArray(models[i].VAO));
-            GL_CALL(glDrawElements(GL_TRIANGLES, models[i].indicesSize, GL_UNSIGNED_INT, 0));
+            DEBUG_LOG("         Render triangels");
+            GL_CALL(glBindVertexArray(models[j].VAO));
+            GL_CALL(glDrawElements(GL_TRIANGLES, models[j].indicesSize, GL_UNSIGNED_INT, 0));
         }
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, 0));
     }
 
 
+    DEBUG_LOG("    Setup scale framebuffer");
+    GL_CALL(glBindFramebuffer(GL_FRAMEBUFFER, render->scaleFramebuffer));
+    GL_CALL(glViewport(0, 0, render->currentPixelWidth, render->currentPixelHeight));
 
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glEnable(GL_TEXTURE_2D);
-    glBindFramebuffer(GL_FRAMEBUFFER, render->scaleFramebuffer);
-
-
-
-    glViewport(0, 0, render->currentPixelWidth, render->currentPixelHeight);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    DEBUG_LOG("    Clear Screen Buffers");
+    GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
     DEBUG_LOG("    Load Main Renderer");
     GL_CALL(glUseProgram(render->mainProgram));
@@ -296,7 +287,7 @@ void renderFrame(struct Render* render, struct Camera* camera, struct GameState*
     GL_CALL(glUniform1i(lightNumberLoc, lightSize));
 
     GL_CALL(int depthMapLoc = glGetUniformLocation(render->mainProgram, "depthMap"));
-    glUniform1iv(depthMapLoc, lightSize, &depthMapIndexes[0]);
+    GL_CALL(glUniform1iv(depthMapLoc, lightSize, &depthMapIndexes[0]));
 
     GL_CALL(int farPlaneLoc = glGetUniformLocation(render->mainProgram, "farPlane"));
     GL_CALL(glUniform1f(farPlaneLoc, render->shadowFar));
@@ -340,8 +331,8 @@ void renderFrame(struct Render* render, struct Camera* camera, struct GameState*
         GL_CALL(glDrawElements(GL_TRIANGLES, models[i].indicesSize, GL_UNSIGNED_INT, 0));
     }
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, render->scaleFramebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-    glBlitFramebuffer(0, 0, render->currentPixelWidth, render->currentPixelHeight, 0, 0, render->currentWidth, render->currentHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    DEBUG_LOG("    Scale render to fill screen");
+    GL_CALL(glBindFramebuffer(GL_READ_FRAMEBUFFER, render->scaleFramebuffer));
+    GL_CALL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0));
+    GL_CALL(glBlitFramebuffer(0, 0, render->currentPixelWidth, render->currentPixelHeight, 0, 0, render->currentWidth, render->currentHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 }

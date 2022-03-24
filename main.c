@@ -1,8 +1,13 @@
 #include "well.h"
 
 GLFWwindow* init() {
-    #if DEBUG
-        fclose(fopen(LOG_FILE, "w"));
+    /* Create debug log file */
+    #if DEBUG && DEBUG_TO_LOG_FILE
+        {
+            FILE* debugFile = fopen(LOG_FILE, "w");
+            fprintf(debugFile, "Well Debug Log File\n\n");
+            fclose(debugFile);
+        }
     #endif
 
     /* Create window and GL context via GLFW */
@@ -18,21 +23,23 @@ GLFWwindow* init() {
 
     GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Well", 0, 0);
     if (window == NULL) {
-        printf("Failed to create GLFW window\n");
+        DEBUG_LOG("Failed to create GLFW window\n");
         glfwTerminate();
         exit(0);
     }
 
     glfwMakeContextCurrent(window);
-    // Vsync
-    glfwSwapInterval(1);
 
-    // Load Glad
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
-        printf("Failed to initialize GLAD");
+    /* Vsync */
+    glfwSwapInterval(VSYNC);
+
+    /* Load Glad */
+    if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)){
+        DEBUG_LOG("Failed to initialize GLAD");
         exit(0);
     }    
-
+    
+    /* Enable addition settings */
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
@@ -44,7 +51,7 @@ void terminate() {
 }
 
 int main() {
-    
+    srand(time(NULL));
     GLFWwindow* window = init();
 
     struct Render mainRender;
@@ -54,11 +61,11 @@ int main() {
     //vec3 pallet[4] = {50, 50, 57, 58, 99, 81, 228, 130, 87, 242, 237, 215};
     //setCurrentPallet(&mainRender, pallet);
 
-    //struct Render outlineRender;
-    //initRender(&outlineRender, "resources/shaders/main.vs", "resources/shaders/outline.fs");
-
     struct Camera camera;
     initCamera(&camera, 1.57f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.01f, 100.0f);
+    defVec3(&camera.position, 5.0f, 3.0f, 3.0f);
+    calcView(&camera);
+    calcProjView(&camera);
 
 
     struct UI ui = {0};
@@ -71,6 +78,8 @@ int main() {
     gameState.actualToPixelConvertion = ACTUAL_TO_PIXEL_CONVETION;
     gameState.currentPixelWidth = PIXEL_WINDOW_WIDTH;
     gameState.currentPixelHeight = PIXEL_WINDOW_HEIGHT;
+    gameState.computationStartTime = 0;
+    gameState.computationEndTime = 0;
     float pallet[12] = {50.0/255.0, 50.0/255.0, 57.0/255.0, 58.0/255.0, 99.0/255.0, 81.0/255.0, 228.0/255.0, 130.0/255.0, 87.0/255.0, 242.0/255.0, 237.0/255.0, 215.0/255.0};
     vec3_dup(gameState.currentPallet[0], &pallet[0]);
     vec3_dup(gameState.currentPallet[1], &pallet[3]);
@@ -82,13 +91,13 @@ int main() {
 
     struct Model model;
     //loadModel(&model, "resources/objects/cube.obj");
-    loadModel(&model, "../../resources/objects/cube.obj");
+    loadModel(&model, "../../resources/objects/sphere.obj");
     model.worldScale = 0.8;
-    model.worldPos[0] = 0.0f;
-    model.worldPos[1] = 0.0f;
+    model.worldPos[1] = 2.0f;
     reCalcModelMat(&model);
 
-    initPhysicsObj(&model, &gameState);
+    initPhysicsObjSphere(&model, 1.0, 0.5, &gameState, true);
+    //dBodySetLinearVel(model.body, ((float) (rand() % 100)) / 100.0f, 0.0, 0.0);
 
 
     struct Model model2;
@@ -96,6 +105,8 @@ int main() {
     model2.worldScale = 5.0;
     model2.worldPos[1] = -2.5;
     reCalcModelMat(&model2);
+
+    initPhysicsObjBox(&model2, 1.0, 10.0, 10.0, 2.0, &gameState, false);
 
 
     struct Light light;
@@ -120,11 +131,8 @@ int main() {
     reCalcModelMat(&model4);
 
 
-
     float deltaTime = 0;
     float lastFrame = 0;
-    float rx = 0;
-    float ry = 0;
     float theta = 0;
 
     double computationStartTime = 0;
@@ -132,16 +140,14 @@ int main() {
 
     // Render loop
     while (!glfwWindowShouldClose(window)) {
-        computationStartTime = glfwGetTime();
-
         // Input
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, true);
         }
 
         int cur_width, cur_height;
-        glfwGetFramebufferSize(window, &cur_width, &cur_height);
-        float currentFrame = glfwGetTime();
+        GL_CALL(glfwGetFramebufferSize(window, &cur_width, &cur_height));
+        GL_CALL(float currentFrame = glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
         gameState.currentFPS = 1.0/deltaTime;
@@ -155,27 +161,17 @@ int main() {
         gameState.currentPixelHeight = gameState.currentWindowHeight / gameState.actualToPixelConvertion;
         setCurrentPalletGameState(&mainRender, &gameState);
 
-        //printf("FPS:%f\n", 1.0/deltaTime);
-
-        //model.worldRot[0] = rx;
-        //rx += 1.0 * deltaTime;
-
-        //model.worldRot[1] = ry;
-        //ry += 0.5 * deltaTime;
         theta += 0.5 * deltaTime;
 
-    
-
-        //reCalcModelMat(&model);
-
-        //defVec3(&camera.position, 5 * cos(theta), 0.0f, 5 * sin(theta));
-
+        if (rand() % 500 == 0) {
+            dBodySetLinearVel(model.body, 0.0, 0.0, ((float) (rand() % 100)) / 20.0f + 5.0f);
+        }
 
         stepPhysics(&gameState, FRAME_RATE_LOCK);
         getPhysicsObjData(&model);
         reCalcModelMat(&model);
 
-        calcView(&camera);
+        //calcView(&camera);
 
 
         struct Model models[4] = {model, model2, model3, model4};
@@ -183,27 +179,16 @@ int main() {
         struct Light lights[2] = {light, light2};
 
 
-        renderFrame(&mainRender, &camera, &gameState, 3, models, 1, lights);
-        //renderFrame(&mainRender, &camera, 1, &model2);
+        renderFrame(&mainRender, &camera, &gameState, 3, models, 1, lights); /* Multiple lights broken -- need to fix */
 
 
         renderUI(&ui);
 
-        // Swap Buffers and Poll Events
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+        /* Swap Buffers and Poll Events */
+        GL_CALL(glfwSwapBuffers(window));
+        GL_CALL(glfwPollEvents());
 
-        computationEndTime = glfwGetTime();
-        double extraTime = (FRAME_RATE_LOCK - (computationEndTime - computationStartTime));
-        if (extraTime < 0) {
-            printf("Unable to compleat tasks in %d seconds.\n", FRAME_RATE_LOCK);
-        } else {
-            printf("Compleat tasks with %d seconds left over.\n", extraTime);
-            do {
-                computationEndTime = glfwGetTime();
-                extraTime = (FRAME_RATE_LOCK - (computationEndTime - computationStartTime));
-            } while (extraTime > 0);
-        }
+        waitForFrameEnd(&gameState);
     }
 
     freePhysics(&gameState);

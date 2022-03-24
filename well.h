@@ -35,22 +35,32 @@
 #define PIXEL_WINDOW_WIDTH (WINDOW_WIDTH / ACTUAL_TO_PIXEL_CONVETION)
 #define PIXEL_WINDOW_HEIGHT (WINDOW_HEIGHT / ACTUAL_TO_PIXEL_CONVETION)
 
-
-#define FRAME_RATE_LOCK (1.0f / 60.0f)
+#define FPS_GOAL 30.0f
+#define FRAME_RATE_LOCK (1.0f / FPS_GOAL)
 
 #define MAX_LIGHTS 10
 
+#define VSYNC 0
+
 
 #define DEBUG true
+#define LIGHT_DEBUG true /* Few critical printfs (only relevent if DEBUG is false) */
+#define DEBUG_TO_LOG_FILE true /* Print to file instead of console (very slow) */
 #define LOG_FILE "log.txt"
 
-#ifdef DEBUG
+#if DEBUG
+    #undef LIGHT_DEBUG
+    #define LIGHT_DEBUG true
+
     #define GL_CALL(x) glClearErrors(); x; glCheckError(__FILE__, __LINE__, #x);
     extern void glClearErrors();
     extern void glCheckError(const char* file, int line, const char* function);
 
-    //#define DEBUG_LOG(...) printf(__VA_ARGS__);
-    #define DEBUG_LOG(...) { FILE* logFile = fopen(LOG_FILE, "a"); fprintf(logFile, __VA_ARGS__); fprintf(logFile, "  -- File:%s, Line:%i\n", __FILE__, __LINE__); fclose(logFile); }
+    #if DEBUG_TO_LOG_FILE
+        #define DEBUG_LOG(...) { FILE* logFile = fopen(LOG_FILE, "a"); fprintf(logFile, __VA_ARGS__); fprintf(logFile, "  -- File:%s, Line:%i\n", __FILE__, __LINE__); fclose(logFile); }
+    #else 
+        #define DEBUG_LOG(...) { printf(__VA_ARGS__); printf("  -- File:%s, Line:%i\n", __FILE__, __LINE__); }
+    #endif
 #else
     #define GL_CALL(x) x
 
@@ -69,11 +79,16 @@ struct GameState {
 
     float currentFPS;
 
+    double computationStartTime;
+    double computationEndTime;
+
 
 
     dWorldID world;
     dSpaceID space;
-    dJointGroupID contactgroup;
+
+
+    dJointGroupID contactGroup;
 };
 
 
@@ -91,8 +106,8 @@ struct Camera {
 
 
     // Properties (x,y,z)
-    vec3 worldPos;
-    vec3 worldRot;
+    // vec3 worldPos;
+    // vec3 worldRot;
 };
 
 
@@ -147,7 +162,8 @@ struct Model {
 
     // Physics
     bool physics;
-    dBodyID body;	
+    dBodyID body;
+    dGeomID geom;	
     dMass mass;
 };
 
@@ -198,8 +214,10 @@ extern void renderUI(struct UI* ui);
 extern void freeUI(struct UI* ui);
 
 // physics.c
+extern void waitForFrameEnd(struct GameState* gameState);
 extern void initPhysics(struct GameState* gameState);
-extern void initPhysicsObj(struct Model* model, struct GameState* gameState);
+extern void initPhysicsObjSphere(struct Model* model, double mass, double radius, struct GameState* gameState, bool body);
+extern void initPhysicsObjBox(struct Model* model, double mass, double lx, double ly, double lz, struct GameState* gameState, bool body);
 extern void stepPhysics(struct GameState* gameState, double stepSize);
 extern void getPhysicsObjData(struct Model* model);
 extern void freePhysics(struct GameState* gameState);

@@ -9,40 +9,22 @@
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
 void initUI(struct UI* ui, GLFWwindow* window) {
-    //ui->ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);
-    glfwSetWindowUserPointer(window, &ui->glfw);
+    GL_CALL(glfwSetWindowUserPointer(window, &ui->glfw));
     ui->glfw.win = window;
-    /*glfwSetScrollCallback(window, nk_gflw3_scroll_callback);
-    glfwSetCharCallback(window, nk_glfw3_char_callback);
-    glfwSetMouseButtonCallback(window, nk_glfw3_mouse_button_callback);*/
     nk_init_default(&ui->glfw.ctx, 0);
-    //ui->glfw.ctx.clip.copy = nk_glfw3_clipboard_copy;
-    //ui->glfw.ctx.clip.paste = nk_glfw3_clipboard_paste;
     ui->glfw.ctx.clip.userdata = nk_handle_ptr(&ui->glfw);
     ui->glfw.last_button_click = 0;
     
-
-
     nk_glfw3_device_create(&ui->glfw);
-
-
-
 
     ui->glfw.is_double_click_down = nk_false;
     ui->glfw.double_click_pos = nk_vec2(0, 0);
 
-
     {struct nk_font_atlas *atlas;
-    //nk_glfw3_font_stash_begin(&ui->glfw, &atlas);
     nk_font_atlas_init_default(&ui->glfw.atlas);
     nk_font_atlas_begin(&ui->glfw.atlas);
     atlas = &ui->glfw.atlas;
     struct nk_font *droid = nk_font_atlas_add_from_file(atlas, "../../resources/fonts/DroidSans.ttf", 28, 0);
-    /*struct nk_font *roboto = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Roboto-Regular.ttf", 14, 0);*/
-    /*struct nk_font *future = nk_font_atlas_add_from_file(atlas, "../../../extra_font/kenvector_future_thin.ttf", 13, 0);*/
-    /*struct nk_font *clean = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyClean.ttf", 12, 0);*/
-    /*struct nk_font *tiny = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyTiny.ttf", 10, 0);*/
-    /*struct nk_font *cousine = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Cousine-Regular.ttf", 13, 0);*/
     const void *image; 
     int w;
     int h;
@@ -56,20 +38,14 @@ void initUI(struct UI* ui, GLFWwindow* window) {
     nk_font_atlas_end(&ui->glfw.atlas, nk_handle_id((int)ui->glfw.ogl.font_tex), &ui->glfw.ogl.null);
     if (ui->glfw.atlas.default_font)
         nk_style_set_font(&ui->glfw.ctx, &ui->glfw.atlas.default_font->handle);
-    /*nk_style_load_all_cursors(ctx, atlas->cursors);*/
     nk_style_set_font(&ui->glfw.ctx, &droid->handle);}
 
-
-
-
-    //ui->bg.r = 0.10f, ui->bg.g = 0.18f, ui->bg.b = 0.24f, ui->bg.a = 1.0f;
     ui->glfw.text_len = 0;
 }
 
 
 void newUIFrame(struct UI* ui, struct GameState* gameState) {
     nk_glfw3_new_frame(&ui->glfw);
-    //struct nk_context *ctx = ui->ctx;
     struct nk_colorf pallet1;
     pallet1.r = gameState->currentPallet[0][0], pallet1.g = gameState->currentPallet[0][1], pallet1.b = gameState->currentPallet[0][2], pallet1.a = 1.0f;
     struct nk_colorf pallet2;
@@ -83,13 +59,9 @@ void newUIFrame(struct UI* ui, struct GameState* gameState) {
         NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
         NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
     {
-        /*nk_layout_row_dynamic(&ui->glfw.ctx, 25, 1);
-        nk_property_int(&ui->glfw.ctx, "Compression:", 0, &property, 100, 10, 1);*/
         nk_layout_row_dynamic(&ui->glfw.ctx, 25, 1);
         nk_value_float(&ui->glfw.ctx, "FPS:", gameState->currentFPS);
 
-        /*nk_layout_row_dynamic(&ui->glfw.ctx, 25, 1);
-        nk_property_int(&ui->glfw.ctx, "Compression:", 0, &property, 100, 10, 1);*/
         nk_layout_row_dynamic(&ui->glfw.ctx, 25, 1);
         nk_property_int(&ui->glfw.ctx, "Pixelate", 1, &gameState->actualToPixelConvertion, 100, 1, 0.5);
 
